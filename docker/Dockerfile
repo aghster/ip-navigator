@@ -1,4 +1,5 @@
 FROM alpine:3.7
+
 RUN apk add --no-cache --update \
   bash \
   python2 \
@@ -18,8 +19,11 @@ RUN apk add --no-cache --update \
   python -m ensurepip && \
   rm -r /usr/lib/python*/ensurepip && \
   pip install --upgrade pip setuptools && \
-  rm -r /root/.cache && \
-  pip install patzilla
-ENTRYPOINT ["/usr/bin/pserve"]
-CMD ["/patzilla.ini"]
+  rm -r /root/.cache
+
+RUN pip install patzilla
+
 EXPOSE 9999 6543
+
+ENTRYPOINT ["/usr/bin/pserve"]
+CMD ["--reload", "/patzilla.ini"]
