@@ -36,6 +36,55 @@ body {
     margin-right: 1.2em;
 }
 
+.header-content {
+
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    min-height: 5rem;
+
+}
+
+.header-content-left {
+    flex-basis: 100%;
+
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    align-items: center;
+}
+
+.header-content-right {
+    white-space: nowrap;
+    text-align: right;
+
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    align-items: center;
+    justify-content: right;
+}
+
+.header-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-rendering: optimizelegibility;
+    line-height: 40px;
+}
+
+.header-image {
+    max-height: 4rem;
+    margin: 1rem;
+}
+
+
+.environment-badge {
+    margin-left: 2rem;
+}
+
 
 /* Tweak menu opener based on layout */
 .menu-wide {
@@ -47,21 +96,6 @@ body {
     font-size: 2em;
 }
 */
-
-
-.header-content {
-    min-height: 5rem;
-}
-
-.header-content-left {
-    display: flex !important;
-}
-
-.header-logo {
-    font-size: 24.5px;
-    line-height: 40px;
-    font-weight: bold;
-}
 
 
 
@@ -101,12 +135,6 @@ body {
     padding: 9px;
 }
 
-.title {
-    font-size: 24.5px;
-    line-height: 40px;
-    font-weight: bold;
-    text-rendering: optimizelegibility;
-}
 
 
 /* Export dialog */
@@ -372,6 +400,11 @@ ul.breathe li {
 }
 
 
+/* MDC Snackbar */
+.mdc-snackbar {
+    z-index: 9999;
+    padding: 1.4rem;
+}
 
 /* Notification box */
 .ns-box {
@@ -622,6 +655,10 @@ img.pdf-svg[src*=svg] { height/*\**/: 18px; width/*\**/: 18px; }
 .document-stack-decorated {
     border-left: 3px solid #2196F3;
     margin-left: -3px;
+}
+
+.stack-menu {
+    min-width: calc(25vw - 32px);
 }
 
 

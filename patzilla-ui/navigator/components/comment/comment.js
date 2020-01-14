@@ -49,7 +49,7 @@ CommentCollection = Backbone.Collection.extendEach(SmartCollectionMixin, {
     },
 
     get_by_project: function(project) {
-        return this.search({project: project});
+        return this.search({project: project}, CommentCollection);
     },
 
 });
@@ -101,11 +101,26 @@ CommentTextView = Backbone.Marionette.ItemView.extend({
 
         var _this = this;
 
-        // show the widget with animation
-        this.get_widget().slideToggle();
+        // Show the widget with animation.
+        this.get_widget().slideToggle(function() {
+            var element = _this.get_textarea();
+            var is_visible = element.is(":visible");
+            if (is_visible) {
+                element.trigger('focus');
 
-        // save the comment when loosing focus by connecting
-        // the textarea element's blur event to the item save action
+                element.off('keydown');
+                element.on('keydown', null, 'meta+return', function() {
+                    element.trigger('blur');
+                });
+                element.on('keydown', null, 'ctrl+return', function(event) {
+                    element.trigger('blur');
+                });
+
+            }
+        });
+
+        // Save the comment when loosing focus by connecting
+        // the textarea element's blur event to the item save action.
         var textarea = this.get_textarea();
         textarea.off('blur');
         textarea.on('blur', function() {
@@ -270,8 +285,8 @@ CommentsPlugin = Marionette.Controller.extend({
 
         var backbone_view = element.backboneView();
 
-        // edit-toggle the comment manager
-        if (backbone_view.comment_manager) {
+        // Edit-toggle the comment manager
+        if (backbone_view && backbone_view.comment_manager) {
             backbone_view.comment_manager.toggle_edit();
         }
     },

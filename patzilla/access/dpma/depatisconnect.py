@@ -38,6 +38,10 @@ def includeme(config):
         use_https = True
 
 
+class NotConfiguredError(Exception):
+    pass
+
+
 client = None
 def get_client():
     global client
@@ -45,7 +49,16 @@ def get_client():
         client = requests.Session()
     return client
 
+
+def sanity_check():
+    if archive_service_baseurl is None:
+        raise NotConfiguredError('Data source DEPATISconnect not configured')
+
+
 def run_acquisition(document_number, doctypes=None):
+
+    sanity_check()
+
     numbers = to_list(document_number)
     doctypes = doctypes or 'xml'
     doctypes = to_list(doctypes)
@@ -63,6 +76,9 @@ def run_acquisition(document_number, doctypes=None):
     return server.runAcquisition(numbers, doctypes)
 
 def fetch_xml(number):
+
+    sanity_check()
+
     # /download/xml:docinfo/DE202014004373U1.xml?nodtd=1&fastpath=true
     url_tpl = archive_service_baseurl + '/download/xml:docinfo/{number}.xml?nodtd=1&fastpath=true'
     url = url_tpl.format(number=number)
@@ -70,11 +86,14 @@ def fetch_xml(number):
     return response
 
 def fetch_pdf(number, attempt=1):
-    log.info('PDF archive attempt #{attempt} for {number}'.format(attempt=attempt, number=number))
     return fetch_pdf_real(number)
 
 @cache_region('static')
 def fetch_pdf_real(number):
+
+    log.info('PDF {}: Accessing DEPATISconnect server'.format(number))
+
+    sanity_check()
 
     # /download/pdf/EP666666B1.pdf
     url_tpl = archive_service_baseurl + '/download/pdf/{number}.pdf?fastpath=true'

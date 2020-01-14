@@ -4,7 +4,7 @@ require('patzilla.navigator.components.storage');
 require('raty');
 var memoize = require('memoize');
 var urljoin = require('url-join');
-
+var sanitize_non_ascii = require('patzilla.lib.util').sanitize_non_ascii;
 
 function BasketError(message) {
     this.name    = 'BasketError';
@@ -301,6 +301,10 @@ BasketModel = Backbone.RelationalModel.extend({
             // let all entries pass
             //return false;
 
+            if (entry.get('number') == undefined) {
+                return true;
+            }
+
             var score = entry.get('score');
             var seen = entry.get('seen');
             var dismiss = entry.get('dismiss');
@@ -356,7 +360,7 @@ BasketModel = Backbone.RelationalModel.extend({
         var entries = this.get_entries(options);
 
         var numbers = entries.map(function(entry) {
-            return entry.get('number');
+            return sanitize_non_ascii(entry.get('number'));
         });
         //log('numbers:', numbers);
 
@@ -386,6 +390,8 @@ BasketModel = Backbone.RelationalModel.extend({
         var baseurl = navigatorApp.permalink.get_baseurl_patentview();
         return entries.map(function(entry) {
             var newentry = entry.toJSON();
+            if (!newentry) { return; }
+            newentry['number'] = sanitize_non_ascii(newentry['number']);
             newentry['url'] = urljoin(baseurl, '/view/pn/', newentry['number']);
             return newentry;
         });
@@ -631,7 +637,10 @@ BasketView = Backbone.Marionette.ItemView.extend({
             var text = (e.originalEvent || e).clipboardData.getData('text');
             var entries = text.split(/[,;\r\n]/);
             _.each(entries, function(entry) {
-                _this.model.add(entry);
+                entry = sanitize_non_ascii(entry);
+                if (entry) {
+                    _this.model.add(entry);
+                }
             });
         });
 

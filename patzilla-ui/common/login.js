@@ -5,7 +5,8 @@ require('jrumble');
 require('purl/purl');
 require('bootstrap-2.3.2/css/bootstrap.css');
 require('bootstrap-2.3.2/css/bootstrap-responsive.css');
-require('fontawesome-3.2.1/css/font-awesome.css');
+// Font Awesome 3.2.1; TODO: Upgrade to more recent version
+require('font-awesome/css/font-awesome.css');
 require('patzilla.navigator.style');
 
 $(document).ready(function() {
@@ -56,6 +57,8 @@ $(document).ready(function() {
             demourl = demourl.replace('patentsearch', 'patentview');
         } else if (_.string.contains(demourl, 'navigator')) {
             demourl = demourl.replace('navigator', 'viewer');
+        } else if (_.string.contains(demourl, 'patbib')) {
+            demourl = demourl.replace('patbib', 'patview');
         } else if (!_.string.contains(demourl, 'localhost')) {
             demourl = demourl.replace(url.attr('host'), 'patentview.ip-tools.io');
         }

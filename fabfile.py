@@ -52,7 +52,7 @@ def install(version, target):
         target_path = os.path.join(INSTALLATION_PATH, 'sites', target)
         dir_ensure(target_path, recursive=True)
 
-        venv_path = target_path + '/.venv27'
+        venv_path = target_path + '/.venv2'
 
         #if not file_is_file(source_package):
         #    abort('Source package does not exist: ' + source_package)
@@ -78,7 +78,8 @@ def setup_package(package, virtualenv, options=''):
     #--index-url=http://c.pypi.python.org/simple
     pip_cmd_template = """
         source {virtualenv}/bin/activate;
-        sh -c "pip install --upgrade pip";
+        sh -c "pip install --upgrade setuptools==36.4.0";
+        sh -c "pip install --upgrade pip==19.2.3";
         sh -c "export TEMP=/var/tmp; pip install --cache-dir=/var/cache/pip --verbose {options} {package}"
         """
     #sh -c "pip install --download-cache=/var/cache/pip --allow-all-external --allow-unverified=which --verbose {options} {package}"

@@ -2,15 +2,19 @@
 # (c) 2007-2018 Andreas Motl <andreas.motl@ip-tools.org>
 import re
 import types
+import logging
 from copy import copy
 from patzilla.util.numbers.denormalize import denormalize_patent_wo
 from patzilla.util.numbers.helper import pad_left, trim_leading_zeros, fullyear_from_year
-from patzilla.util.numbers.common import split_patent_number, join_patent
+from patzilla.util.numbers.common import decode_patent_number, split_patent_number, join_patent
+
+
+logger = logging.getLogger(__name__)
+
 
 """
 Normalize patent- and document-numbers.
 """
-
 
 def patch_patent(patent, provider=None):
 
@@ -388,6 +392,12 @@ def normalize_patent_wo_pct(patent):
 
 
 def normalize_patent_us(patent, provider=None):
+    """
+    # TODO:
+    # >>> DocumentIdentifier('US2548918').normalize(provider=DocumentProvider.USPTO).serialize()
+    >>> normalize_patent_us(decode_patent_number('US2548918'), provider='uspto').serialize()
+    'US02548918'
+    """
 
     # USPTO number formats
 
@@ -467,13 +477,16 @@ def normalize_patent_us(patent, provider=None):
             padding = '0' * (11 - length)
             patched['number'] = patched['number'][0:4] + padding + patched['number'][4:]
 
-
     # 2018-04-23: Espacenet changed behavior, handle edge case for
     # USD813591S to yield https://worldwide.espacenet.com/publicationDetails/claims?CC=US&NR=D813591S&KC=S
     if provider == 'espacenet':
         if 'number-type' in patched:
             if patched['number-type'] == 'D' and patched['kind'] == 'S':
                 patched['number'] += patched['kind']
+
+    # 2019-03-05: When going to the USPTO itself, pad sequential number to 8 digits.
+    if provider == 'uspto':
+        patched['number'] = patched['number'].zfill(8)
 
     return patched
 
@@ -490,7 +503,7 @@ def normalize_patent_jp(patent):
     conversion: Western Year - 25
 
     HEISEI (HEI, H) - reign of Emperor Akihito
-    1989 to date
+    1989 to 2000
     Japanese emperor year: 01-12
     conversion: Western Year - 88
 
@@ -501,6 +514,10 @@ def normalize_patent_jp(patent):
     - "SIP" yields JP58002167U, which OPS will only accept as JPS582167U
     - JP3657641B2 should stay the same
     - JP08007001AA should become JP08007001A
+
+    The JPO no longer uses the era name for the publication numbers after 2000 (Heisei-12),
+    and therefore, we will not see the new era name “Reiwa” on publication numbers.
+    -- https://allegropat.com/new-era-reiwa-starts-in-japan-from-may-1-2019/
     """
 
     assert patent['country'] == 'JP'

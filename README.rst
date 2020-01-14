@@ -17,7 +17,7 @@ PatZilla: Patent information research for humans
 About
 =====
 PatZilla is a modular patent information research platform and
-data integration toolkit. It features a modern user interface
+data integration toolkit. It features an efficient user interface
 and access to multiple data sources.
 
 The system provides convenient access to the OPS service from EPO and
@@ -141,7 +141,7 @@ Thanks in advance for your efforts, we really appreciate any help or feedback.
 
 License
 =======
-This software is copyright © 2013-2018 The PatZilla authors. All rights reserved.
+This software is copyright © 2013-2019 The PatZilla authors. All rights reserved.
 
 It is and will always be **free and open source software**.
 
@@ -153,12 +153,18 @@ Please also have a look at the `notices about licenses of third-party components
 
 Support
 =======
-For enterprises, dedicated commercial support is also available through Elmyra UG.
-`Elmyra UG`_ is the software development company that’s spearheading the ongoing
-development and as such will ensure continuity for the project.
+For enterprises, dedicated commercial support is also available through
+Elmyra UG. `Elmyra UG`_ is the software development company that’s
+spearheading the ongoing development and as such will ensure
+continuity for the project.
 
-If you’re using the IP Navigator in your company and you need support or custom development,
-feel free to get in touch with us. We are happy to receive respective inquiries at support@elmyra.de.
+If you’re using PatZilla in your company and you need support or custom
+development or support, feel free to get in touch with us. We are happy
+to receive respective inquiries at info@elmyra.de.
+
+In this way, you are contributing to the ongoing maintenance and further
+development of PatZilla. As it still is a reasonably young project, it
+needs all support it can get.
 
 
 .. _GNU-AGPL-3.0: https://docs.ip-tools.org/ip-navigator/_static/license/GNU-AGPL-3.0.txt
@@ -173,10 +179,10 @@ feel free to get in touch with us. We are happy to receive respective inquiries 
 .. _issue: https://github.com/ip-tools/ip-navigator/issues
 
 .. _NASA public domain: https://technology.nasa.gov/latest/public_domain
-.. _nasa-public-domain demo: https://patentview.ip-tools.io/?op=eyJhbGciOiAiUlMyNTYiLCAidHlwIjogIkpXVCJ9.eyJqdGkiOiAieWJtZDRWeEtlcDlvcW1YaFM0a2NwQT09IiwgImRhdGEiOiB7InByb2plY3QiOiAibmFzYS1wdWJsaWMtZG9tYWluLXJlY2VudCIsICJkYXRhc291cmNlIjogInJldmlldyIsICJjb250ZXh0IjogInZpZXdlciIsICJ0dGwiOiAiMTU2MzQ4MDAiLCAibW9kZSI6ICJsaXZldmlldyIsICJudW1iZXJsaXN0IjogIlVTNTY4OTAwNCxVUzcwMDg2MDUsVVM3MDIzMTE4LFVTNzQzODAzMCxVUzc3NzMzNjIsVVM3NzkwMTI4LFVTNzgwODM1MyxVUzc5MDA0MzYsVVM3OTMzMDI3LFVTODIxMjEzOCxVUzgyNTkxMDQsVVM4NDA3OTc5LFVTODc2MzM2MixVUzg5Mzg5NzQsVVM5MDE2NjMyLFVTOTAyMTc4MixVUzkwOTE0OTAsVVM5MTk0MzM0In0sICJuYmYiOiAxNTA5NDI4NjI2LCAiZXhwIjogMTUyNTA2MzQyNiwgImlhdCI6IDE1MDk0Mjg2MjZ9.hFx5wWhi-n4w8ZJTVGC7liQeMfqpH8VTpRfmT6twfM4As23MBTwlsmg0u2frfYs0zV6qCsQngwwvQ2Tn6VCju8yf5GBIG5erB3VFyOr_EtZejFJOqTO6A5esEcUtyeXZ
+.. _nasa-public-domain demo: https://patentview.ip-tools.io/?op=eyJhbGciOiAiUlMyNTYiLCAidHlwIjogIkpXVCJ9.eyJqdGkiOiAiTFFoQzMxbjBzalpLZlU5QUNmRVNMQT09IiwgImRhdGEiOiB7InByb2plY3QiOiAiTkFTQSBQdWJsaWMgRG9tYWluIiwgIm51bWJlcmxpc3QiOiAiVVM1Njg5MDA0LFVTNzAwODYwNSxVUzcwMjMxMTgsVVM3NDM4MDMwLFVTNzc3MzM2MixVUzc3OTAxMjgsVVM3ODA4MzUzLFVTNzkwMDQzNixVUzc5MzMwMjcsVVM4MjEyMTM4LFVTODI1OTEwNCxVUzg0MDc5NzksVVM4NzYzMzYyLFVTODkzODk3NCxVUzkwMTY2MzIsVVM5MDIxNzgyLFVTOTA5MTQ5MCxVUzkxOTQzMzQsVVM5MTk0MzM0QjEiLCAiY29udGV4dCI6ICJ2aWV3ZXIiLCAidHRsIjogIjE1Nzg1MjgwMCIsICJtb2RlIjogImxpdmV2aWV3IiwgImRhdGFzb3VyY2UiOiAicmV2aWV3In0sICJuYmYiOiAxNTUzMDM2MDgxLCAiZXhwIjogMTcxMDg4ODg4MSwgImlhdCI6IDE1NTMwMzYwODF9.gejftmq0JiHZEyjBQbQy0QSsKpjDd0TsGl0Zp8BVhH9IrxPi4YT5sxxXjWOU46I3OASzAANodttMJydzgP2DjeIF7VJnjMA9ZrHeqAL30gk8WOmbEIse7l2ciOfhJtyT
 
 .. _EPO/OPS: https://ops.epo.org/
-.. _DPMA/DEPATISnet: https://depatisnet.dpma.de
+.. _DPMA/DEPATISnet: https://depatisnet.dpma.de/DepatisNet/depatisnet?window=1&space=menu&content=index&action=index&switchToLang=en
 .. _USPTO/PATIMG: https://www.uspto.gov/
 .. _CIPO: http://cipo.gc.ca
 .. _IFI Claims: https://www.ificlaims.com/

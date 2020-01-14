@@ -10,7 +10,7 @@ requires = [
     # ----------------------------------------------
     #   Environment
     # ----------------------------------------------
-    'setuptools>=36.4.0',       # 38.5.2
+    #'setuptools==36.4.0',       # 38.5.2
     'six>=1.10.0',              # 1.11.0
 
 
@@ -23,7 +23,7 @@ requires = [
     'pyramid_debugtoolbar==4.3',    # 4.4
     'Pygments==2.2.0',
     'pyramid_mako==1.0.2',
-    'Jinja2==2.10',
+    'Jinja2==2.10.1',
     'Akhet==2.0',
     'waitress==1.1.0',
     'Paste==2.0.3',
@@ -34,18 +34,20 @@ requires = [
     'pyramid_beaker==0.8',
     'dogpile.cache==0.6.4',     # 0.6.5
 
-    # Database
+    # Database and storage
     # Can't upgrade to pymongo-3.5.1 due to "from pymongo.connection import Connection"
     # usage in "mongodb_gridfs_beaker" module.
     'pymongo==2.9.5',           # 3.6.1
     'mongodb_gridfs_beaker==0.5.4',
     'mongoengine==0.13.0',      # 0.15.0
+    'minio==4.0.14',
+    'python-magic==0.4.15',
 
     # Web services
     'cornice==2.4.1',           # 3.4.0
 
     # Authorization
-    'pycrypto==2.6.1',
+    'pycrypto==2.6.1',          # CVE-2013-7459, CVE-2018-6594
     'jws==0.1.3',
     'python_jwt==2.0.2',        # 3.1.0
     'pbkdf2==1.3',
@@ -56,16 +58,16 @@ requires = [
     # ----------------------------------------------
 
     # HTTP
-    'requests==2.18.4',
-    'requests-oauthlib==0.8.0',
+    'python-epo-ops-client==3.1.1',
+    'requests==2.22.0',
     'mechanize==0.3.6',
     'MechanicalSoup==0.10.0',
 
     # HTTP SNI support
-    'pyOpenSSL==17.3.0',        # 17.5.0
-    'cryptography==2.0.3',      # 2.1.4
-    'pyasn1==0.3.7',            # 0.4.2
-    'ndg-httpsclient==0.4.3',   # 0.4.4
+    'pyOpenSSL==19.0.0',
+    'cryptography==2.5',
+    'pyasn1==0.4.5',
+    'ndg-httpsclient==0.5.1',
 
     # HTML
     'BeautifulSoup==3.2.1',     # beautifulsoup4==4.6.0
@@ -92,6 +94,7 @@ requires = [
     'ago==0.0.9',               # 0.0.92
     'arrow==0.10.0',            # 0.12.1
     'validate_email==1.3',
+    'numpy==1.16.2',
     'pandas==0.18.1',           # 0.22.0
 
     # Data formatting
@@ -131,7 +134,7 @@ test_requires = [
 ]
 
 setup(name='patzilla',
-      version='0.161.1',
+      version='0.169.3',
       description='PatZilla is a modular patent information research platform and data integration ' \
                   'toolkit. It features a modern user interface and access to multiple data sources.',
       long_description=README,
@@ -174,7 +177,7 @@ setup(name='patzilla',
               'resources/*.*',
               'templates/*.mako', 'templates/*.html', 'templates/*.min.js',
               'static/js/**/*.min.js', 'static/js/**/*.min.js.map', '**/**/*.css',
-              '**/**/*.png', '**/**/*.jpg', '**/**/*.gif', '**/**/*.svg',
+              '**/**/*.png', '**/**/*.jpg', '**/**/*.gif', '**/**/*.svg', '**/**/*.txt',
           ],
           'patzilla.util': ['*.js'],
       },
@@ -205,6 +208,7 @@ setup(name='patzilla',
             'patzilla-user = patzilla.commands:usercmd',
             'dpmaregister  = patzilla.access.dpma.dpmaregister:run',
             'patzilla-sip  = patzilla.access.sip.commands:run',
+            'patzilla-cachecarver = patzilla.util.database.beaker_mongodb_carve:run',
         ],
 
       },

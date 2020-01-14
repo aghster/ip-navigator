@@ -1,18 +1,23 @@
 # -*- coding: utf-8 -*-
-# (c) 2013-2018 Andreas Motl <andreas.motl@ip-tools.org>
+# (c) 2013-2019 Andreas Motl <andreas.motl@ip-tools.org>
 import time
 import logging
-from pprint import  pformat
+from pprint import pformat
+from contextlib import contextmanager
+
+import epo_ops
 from cornice.util import json_error, to_list
 from beaker.cache import cache_region
 from simplejson.scanner import JSONDecodeError
 from jsonpointer import JsonPointer, resolve_pointer, set_pointer, JsonPointerException
 from pyramid.threadlocal import get_current_request
-from pyramid.httpexceptions import HTTPNotFound, HTTPError, HTTPBadRequest
+from pyramid.httpexceptions import HTTPNotFound, HTTPError, HTTPBadRequest, HTTPBadGateway
 from patzilla.navigator.util import object_attributes_to_dict
 from patzilla.util.image.convert import pdf_join, pdf_set_metadata, pdf_make_metadata
 from patzilla.access.generic.exceptions import NoResultsException
 from patzilla.util.numbers.common import decode_patent_number, split_patent_number
+from patzilla.util.numbers.common import encode_epodoc_number, encode_docdb_number
+from patzilla.util.numbers.normalize import normalize_patent
 
 log = logging.getLogger(__name__)
 
@@ -48,9 +53,28 @@ ops_keyword_fields = [
 
 def get_ops_client():
     request = get_current_request()
-    oauth_client = request.ops_oauth_client
-    log.debug('OPS request with client-id {0}'.format(oauth_client.client_id))
-    return oauth_client
+    ops_client = request.ops_client
+    log.debug('OPS request with client-id {0}'.format(ops_client.key))
+    return ops_client
+
+
+@contextmanager
+def ops_client(xml=False):
+
+    # FIXME: Better use "accept_type" on a per-request basis supported by ``python-epo-ops-client``.
+
+    # Acquire OPS client instance.
+    ops = get_ops_client()
+
+    try:
+        # Conditionally switch to XML.
+        if xml:
+            ops.accept_type = 'application/xml'
+        yield ops
+
+    # Reset to default content type.
+    finally:
+        ops.accept_type = 'application/json'
 
 
 @cache_region('search', 'ops_search')
@@ -60,6 +84,7 @@ def ops_published_data_search_swap_family(constituents, query, range):
     numbers = results_swap_family_members(results)
     #pprint(numbers)
     return results
+
 
 def results_swap_family_members(response):
 
@@ -122,6 +147,7 @@ def results_swap_family_members(response):
         try:
             family_info = ops_family_members(representation_pubref_epodoc)
         except:
+            log.warning('Failed to fetch family information for %s', representation_pubref_epodoc)
             chunk['exchange-document'] = representation
             request = get_current_request()
             del request.errors[:]
@@ -153,11 +179,12 @@ def results_swap_family_members(response):
                 if match_filter(member_pubnum, filter):
 
                     # Debugging
-                    #print 'member_pubnum:', member_pubnum
+                    #print 'Filter matched for member:', member_pubnum
 
                     try:
                         bibdata = ops_biblio_documents(member_pubnum)
                     except:
+                        #log.warning('Fetching bibliographic data failed for %s', member_pubnum)
                         request = get_current_request()
                         del request.errors[:]
                         continue
@@ -200,6 +227,33 @@ def results_swap_family_members(response):
 
         chunk['exchange-document'] = representation
 
+    # Filter duplicates
+    seen = []
+    results = []
+    fields = ['@country', '@doc-number', '@kind', '@family-id']
+    for chunk in chunks:
+
+        # Prepare list of document cycles.
+        cycles = to_list(chunk['exchange-document'])
+
+        # Only look at first cycle slot.
+        doc = cycles[0]
+
+        # Compute unique document identifier.
+        ident = {}
+        for key in fields:
+            ident[key] = doc[key]
+
+        # Collect chunk if not seen yet.
+        if ident in seen:
+            continue
+        else:
+            seen.append(ident)
+            results.append(chunk)
+
+    # Overwrite reduced list of chunks in original DOM.
+    pointer_results.set(response, results)
+
     return publication_numbers
 
 
@@ -207,44 +261,32 @@ def results_swap_family_members(response):
 def ops_published_data_search(constituents, query, range):
     return ops_published_data_search_real(constituents, query, range)
 
+
 def ops_published_data_search_real(constituents, query, range):
 
-    # query EPO OPS REST service
-    url_tpl = "{baseuri}/published-data/search/{constituents}"
-    url = url_tpl.format(baseuri=OPS_API_URI, constituents=constituents)
-    #print 'url:', url
+    # OPS client object, impersonated for the current user.
+    ops = get_ops_client()
 
-    # v1: anonymous
-    #import requests; client = requests
+    # Send request to OPS.
+    range_begin, range_end = map(int, range.split('-'))
+    response = ops.published_data_search(
+        query, range_begin=range_begin, range_end=range_end, constituents=to_list(constituents))
 
-    # v2: with oauth
-    client = get_ops_client()
-
-    response = client.get(url, headers={'Accept': 'application/json'}, params={'q': query, 'Range': range})
-
-    # TODO: use POST for large "q" requests, move "Range" to "X-OPS-Range" header
-    #response = client.post(url, headers={'Accept': 'application/json'}, data={'q': query})
-
-    #print "request-url:", url
-    #print "status-code:", response.status_code
-    #print "response:", response
-    #print "response body:", response.content
-
-    pointer_total_count = JsonPointer('/ops:world-patent-data/ops:biblio-search/@total-result-count')
-
+    # Decode OPS response from JSON
     payload = handle_response(response, 'ops-search')
 
     if response.headers['content-type'].startswith('application/json'):
 
-        # Decode OPS response from JSON
-        ops_response = response.json()
-
-        # Raise an exception on empty results to skip caching this response
+        # Decode total number of results.
+        pointer_total_count = JsonPointer('/ops:world-patent-data/ops:biblio-search/@total-result-count')
         count_total = int(pointer_total_count.resolve(payload))
+
+        # Raise an exception to skip caching empty results.
         if count_total == 0:
             raise NoResultsException('No results', data=payload)
 
         return payload
+
 
 @cache_region('search')
 def ops_published_data_crawl(constituents, query, chunksize):
@@ -409,22 +451,25 @@ def inquire_images(document):
 
     # v1: docdb
     if patent.kind:
-        ops_patent = patent['country'] + '.' + patent['number'] + '.' + patent['kind']
-        url_image_inquriy_tpl = '{baseuri}/published-data/publication/docdb/{ops_patent}/images'
+        ops_patent = encode_docdb_number(patent)
+        url_image_inquiry_tpl = '{baseuri}/published-data/publication/docdb/images'
 
     # v2: epodoc
     else:
         ops_patent = patent['country'] + patent['number']
-        url_image_inquriy_tpl = '{baseuri}/published-data/publication/epodoc/{ops_patent}/images'
+        url_image_inquiry_tpl = '{baseuri}/published-data/publication/epodoc/images'
 
-    url_image_inquriy = url_image_inquriy_tpl.format(baseuri=OPS_API_URI, ops_patent=ops_patent)
-    log.debug('Inquire image information via {url}'.format(url=url_image_inquriy))
+    url_image_inquiry = url_image_inquiry_tpl.format(baseuri=OPS_API_URI)
+    log.debug('Inquire image information via {url}'.format(url=url_image_inquiry))
 
     error_msg_access = 'No image information for document={0}'.format(document)
     error_msg_process = 'Error while processing image information for document={0}'.format(document)
 
-    client = get_ops_client()
-    response = client.get(url_image_inquriy, headers={'Accept': 'application/json'})
+    # Inquire image metadata from OPS.
+    ops = get_ops_client()
+    response = ops._make_request(url_image_inquiry, ops_patent)
+
+    # Evaluate response.
     if response.status_code != 200:
 
         if response.status_code == 404:
@@ -465,11 +510,14 @@ def inquire_images(document):
     # Enrich image inquiry information. Compute image information for carousel widget.
     enrich_image_inquiry_info(info)
 
+    #log.info('Image info: %s', info)
+
     return info
 
 
 def is_fulldocument(node):
     return '@desc' in node and node['@desc'] == u'FullDocument'
+
 
 def is_amendment_only(node):
     """
@@ -524,17 +572,11 @@ def enrich_image_inquiry_info(info):
     return enriched
 
 
-def get_ops_image_link_url(link, format, page=1):
-    service_url = OPS_API_URI
-    url_tpl = '{service_url}/{link}.{format}?Range={page}'
-    url = url_tpl.format(**locals())
-    return url
-
-
 @cache_region('static')
 def get_ops_image_pdf(document, page):
     payload = get_ops_image(document, page, 'FullDocument', 'pdf')
     return payload
+
 
 def get_ops_image(document, page, kind, format):
 
@@ -558,28 +600,38 @@ def get_ops_image(document, page, kind, format):
                 if start_page:
                     page = page + start_page - 1
 
-            url = get_ops_image_link_url(link, format, page)
-
         # fallback chain, if no drawings are available
         elif image_info.has_key('JapaneseAbstract'):
             drawing_node = image_info.get('JapaneseAbstract')
             link = drawing_node['@link']
-            url = get_ops_image_link_url(link, format, 1)
+            page = 1
 
         else:
             msg = 'No image information for document={0}, kind={1}'.format(document, kind)
             log.warn(msg)
             # TODO: respond with proper json error
             raise HTTPNotFound(msg)
+
     else:
         msg = 'No image information for document={0}'.format(document)
         #log.warn(msg)
         # TODO: respond with proper json error
         raise HTTPNotFound(msg)
 
-    client = get_ops_client()
-    response = client.get(url)
+    # Compute document format.
+    document_format = 'application/tiff'
+    if format == 'pdf':
+        document_format = 'application/pdf'
+
+    # Acquire image from OPS.
+    ops = get_ops_client()
+    response = ops.image(link, range=page, document_format=document_format)
+
     if response.status_code == 200:
+
+        # Decode and measure content length.
+        measure_response(response)
+
         payload = response.content
         return payload
 
@@ -608,14 +660,18 @@ def ops_description(document_number, xml=False):
     # http://ops.epo.org/3.1/rest-services/published-data/publication/epodoc/EP0666666.A2/description.json
     # http://ops.epo.org/3.1/rest-services/published-data/publication/epodoc/EP0666666.B1/description.json
 
-    url_tpl = '{baseuri}/published-data/publication/epodoc/{document_number}/description.json'
-    url = url_tpl.format(baseuri=OPS_API_URI, document_number=document_number)
+    patent = normalize_patent(document_number, for_ops=True, as_dict=True)
+    document_number = encode_epodoc_number(patent)
 
-    client = get_ops_client()
-    response = client.get(url, headers=get_accept_headers(xml=xml))
+    url_tpl = '{baseuri}/published-data/publication/epodoc/description'
+    url = url_tpl.format(baseuri=OPS_API_URI)
 
-    return handle_response(response, 'ops-description')
+    log.info('Acquiring description for document "{}" from "{}"'.format(document_number, url))
 
+    # Acquire description fulltext from OPS.
+    with ops_client(xml=xml) as ops:
+        response = ops._make_request(url, document_number)
+        return handle_response(response, 'ops-description')
 
 
 @cache_region('static')
@@ -623,96 +679,136 @@ def ops_claims(document_number, xml=False):
 
     # http://ops.epo.org/3.1/rest-services/published-data/publication/epodoc/EP0666666/claims.json
 
-    url_tpl = '{baseuri}/published-data/publication/epodoc/{document_number}/claims.json'
-    url = url_tpl.format(baseuri=OPS_API_URI, document_number=document_number)
+    patent = normalize_patent(document_number, for_ops=True, as_dict=True)
+    document_number = encode_epodoc_number(patent)
 
-    client = get_ops_client()
-    response = client.get(url, headers=get_accept_headers(xml=xml))
+    url_tpl = '{baseuri}/published-data/publication/epodoc/claims'
+    url = url_tpl.format(baseuri=OPS_API_URI)
 
-    return handle_response(response, 'ops-claims')
+    log.info('Acquiring claims for document "{}" from "{}"'.format(document_number, url))
+
+    # Acquire claims fulltext from OPS.
+    with ops_client(xml=xml) as ops:
+        response = ops._make_request(url, document_number)
+        return handle_response(response, 'ops-claims')
 
 
 @cache_region('search')
 def ops_family_inpadoc(reference_type, document_number, constituents, xml=False):
     """
-    Download requested family publication information from OPS
-    e.g. http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP.1491501.A1/biblio,legal
-
-    http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP0666666/biblio
-    http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP0666666.A2/biblio
-    http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP0666666.B1/biblio
+    Request family information from OPS in JSON format.
 
     reference_type = publication|application|priority
     constituents   = biblio|legal
+
+    Examples:
+    - http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP.1491501.A1/biblio,legal
+    - http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP0666666/biblio
+    - http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP0666666.A2/biblio
+    - http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP0666666.B1/biblio
+
     """
 
-    url_tpl = '{baseuri}/family/{reference_type}/epodoc/{document_number}/{constituents}.json'
-    url = url_tpl.format(baseuri=OPS_API_URI, reference_type=reference_type, document_number=document_number, constituents=constituents)
+    # Compute document identifier.
+    document_id = split_patent_number(document_number)
 
-    client = get_ops_client()
-    response = client.get(url, headers=get_accept_headers(xml=xml))
-    #response = client.get(url, headers={'Accept': 'text/xml'})
-    #print "response:", response.content
+    # Acquire family information from OPS.
+    with ops_client(xml=xml) as ops:
+        ops_id = epo_ops.models.Epodoc(document_id.country + document_id.number, document_id.kind)
+        response = ops.family(reference_type, ops_id, constituents=to_list(constituents))
+
+        if response.status_code == 404:
+            ops_id = epo_ops.models.Docdb(document_id.number, document_id.country, document_id.kind)
+            response = ops.family(reference_type, ops_id, constituents=to_list(constituents))
+
+        return handle_response(response, 'ops-family')
+
+
+def ops_family_publication_docdb_xml(reference_type, document_number, constituents):
+    """
+    Request family information from OPS in XML format.
+
+    reference_type = publication|application|priority
+    constituents   = biblio|legal
+
+    Examples:
+    - http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP.1491501.A1/biblio,legal
+    """
+
+    # Compute document identifier.
+    document_id = split_patent_number(document_number)
+    ops_id = epo_ops.models.Docdb(document_id.number, document_id.country, document_id.kind)
+
+    # Acquire family information from OPS.
+    ops = get_ops_client()
+
+    # FIXME: Better use "accept_type" on a per-request basis supported by ``python-epo-ops-client``.
+    ops.accept_type = 'application/xml'
+    response = ops.family(reference_type, ops_id, constituents=to_list(constituents))
+    ops.accept_type = 'application/json'
 
     return handle_response(response, 'ops-family')
 
 
-def ops_family_publication_docdb_xml(document_number, constituents):
-    """
-    Download requested family publication information from OPS
-    e.g. http://ops.epo.org/3.1/rest-services/family/publication/docdb/EP.1491501.A1/biblio,legal
-    """
-    url_tpl = '{baseuri}/family/publication/docdb/{patent}/{constituents}'
-
-    # split patent number
-    patent = split_patent_number(document_number)
-    patent_dotted = '.'.join([patent['country'], patent['number'], patent['kind']])
-
-    url = url_tpl.format(baseuri=OPS_API_URI, patent=patent_dotted, constituents=constituents)
-    client = get_ops_client()
-    #response = client.get(url, headers={'Accept': 'application/json'})
-    response = client.get(url, headers={'Accept': 'text/xml'})
-    #print "response:", response.content
-
-    return response.content
-
-
 @cache_region('search')
-def ops_register(reference_type, document_number, constituents, xml=False):
+def ops_register(reference_type, document_number, constituents=None, xml=False):
     """
-    Download requested register information from OPS
-    e.g. http://ops.epo.org/3.1/rest-services/register/publication/epodoc/EP2485810/biblio
+    Request register information from OPS in JSON or XML format.
 
     reference_type = publication|application|priority
+
+    Examples:
+    - http://ops.epo.org/3.1/rest-services/register/publication/epodoc/EP2485810/biblio
+    - http://ops.epo.org/3.1/rest-services/register/publication/epodoc/EP2485810/biblio,legal.json
     """
 
-    url_tpl = '{baseuri}/register/{reference_type}/epodoc/{document_number}/{constituents}.json'
+    if constituents is None:
+        constituents = 'biblio,legal'
 
-    url = url_tpl.format(baseuri=OPS_API_URI, reference_type=reference_type, document_number=document_number, constituents=constituents)
-    client = get_ops_client()
-    response = client.get(url, headers=get_accept_headers(xml=xml))
-    #print "response:", response.content
+    # Compute document identifier.
+    document_id = split_patent_number(document_number)
+    #ops_id = epo_ops.models.Docdb(document_id.number, document_id.country, document_id.kind)
+    ops_id = epo_ops.models.Epodoc(document_id.country + document_id.number, document_id.kind)
 
-    return handle_response(response, 'ops-register')
+    # Acquire register information from OPS.
+    with ops_client(xml=xml) as ops:
+        response = ops.register(reference_type, ops_id, constituents=to_list(constituents))
+        return handle_response(response, 'ops-register')
 
 
 def handle_response(response, api_location):
     if response.status_code == 200:
+
+        # Decode and measure content length.
+        measure_response(response)
+
+        # Decode body by content type.
         content_type = response.headers['content-type']
 
         if content_type.startswith('application/json'):
             # Decode OPS response from JSON
             return response.json()
 
-        elif content_type.startswith('text/xml'):
+        elif content_type.startswith('application/xml') or content_type.startswith('text/xml'):
             return response.content
 
         else:
-            # TODO: handle error here?
-            return
+            message = 'OPS service responded with unknown content type "{}"'.format(content_type)
+            raise HTTPBadGateway(message)
+
     else:
         response = handle_error(response, api_location)
         raise response
+
+
+def measure_response(response):
+
+    # Decode and measure content length.
+    content_length = response.headers.get('Content-Length')
+    if content_length and content_length.isdigit():
+        ops = get_ops_client()
+        ops.metrics_manager.measure_upstream('ops', int(content_length))
+
 
 def handle_error(response, location):
     request = get_current_request()
@@ -781,6 +877,8 @@ def handle_error(response, location):
 @cache_region('static')
 def pdf_document_build(patent):
 
+    log.info('PDF {}: OPS attempt'.format(patent))
+
     # 1. collect all single pdf pages
     image_info = inquire_images(patent)
     if not image_info:
@@ -817,47 +915,29 @@ def pdf_document_build(patent):
     return pdf_document
 
 
-def get_ops_biblio_url(patent):
-
-    p = decode_patent_number(patent)
-
-    if not p:
-        message = u'Patent number "{patent}" could not be decoded'.format(patent=patent)
-        log.warning(message)
-        raise ValueError(message)
-
-    patent = p['country'] + '.' + p['number'] # + '.' + p['kind']
-
-    service_url = OPS_API_URI
-    url_tpl = '{service_url}/published-data/publication/docdb/{patent}/biblio/full-cycle'
-    url = url_tpl.format(**locals())
-    return url
-
-def get_accept_headers(xml=False):
-    headers = {'Accept': 'application/json'}
-    if xml:
-        headers = {'Accept': 'text/xml'}
-    return headers
-
 def ops_biblio_documents(patent):
-    data = get_ops_biblio_data(patent)
+    data = get_ops_biblio_data('publication', patent)
     documents = to_list(data['ops:world-patent-data']['exchange-documents']['exchange-document'])
     return documents
 
+
 @cache_region('medium')
-def get_ops_biblio_data(patent, xml=False):
+def get_ops_biblio_data(reference_type, patent, xml=False):
 
-    try:
-        url_biblio = get_ops_biblio_url(patent)
-    except ValueError as ex:
-        raise HTTPBadRequest(ex)
+    # Compute document identifier.
+    document_id = decode_patent_number(patent)
+    if document_id.kind:
+        ops_id = epo_ops.models.Docdb(document_id.number, document_id.country, document_id.kind)
+    else:
+        ops_id = epo_ops.models.Epodoc(document_id.country + document_id.number, document_id.kind)
 
-    client = get_ops_client()
-    response = client.get(url_biblio, headers=get_accept_headers(xml=xml))
-    return handle_response(response, 'ops-biblio')
+    # Acquire bibliographic data from OPS.
+    with ops_client(xml=xml) as ops:
+        response = ops.published_data(reference_type, ops_id, constituents=['full-cycle'])
+        return handle_response(response, 'ops-biblio')
 
 
-@cache_region('search')
+@cache_region('medium')
 def ops_document_kindcodes(patent):
 
     error_msg_access = 'No bibliographic information for document={0}'.format(patent)
@@ -867,7 +947,6 @@ def ops_document_kindcodes(patent):
 
     kindcodes = []
     for document in documents:
-        #print "document:", document
 
         # TODO: check whether a single occurrance of "not found" should really raise this exception
         if document.has_key('@status') and document['@status'] == 'not found':
@@ -878,7 +957,6 @@ def ops_document_kindcodes(patent):
         kindcodes.append(kindcode)
 
     return kindcodes
-
 
 
 def _get_document_number_date(docref, id_type):
@@ -892,6 +970,7 @@ def _get_document_number_date(docref, id_type):
             date = document_id.get('date', {}).get('$')
             return doc_number, date
     return None, None
+
 
 def analytics_family(query):
 
@@ -1048,9 +1127,8 @@ def analytics_family(query):
 
     return payload
 
-def ops_family_members(document_number):
 
-    #print '=========== ops_family_members:', document_number
+def ops_family_members(document_number):
 
     pointer_results = JsonPointer('/ops:world-patent-data/ops:patent-family/ops:family-member')
     pointer_publication_reference = JsonPointer('/publication-reference/document-id')
@@ -1075,7 +1153,10 @@ def ops_family_members(document_number):
             'application': {'number-docdb': appref_number, 'date': appref_date},
             })
 
+    #log.info('Family members for %s:\n%s', document_number, family_members)
+
     return family_members
+
 
 class OPSFamilyMembers(object):
 
@@ -1223,6 +1304,7 @@ def _summarize_metrics(payload, kind):
 
     total = sum(total_response_sizes)
     return total
+
 
 def ops_service_usage(date_begin, date_end):
     client = get_ops_client()

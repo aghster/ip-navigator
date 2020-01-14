@@ -236,7 +236,13 @@ def pdf_join(pages):
 
     except Exception as ex:
         logger.error('pdftk joining failed, command={0}, exception={1}, stderr={2}'.format(cmddebug, ex, stderr))
-        raise
+
+    finally:
+        for tmpfile in tmpfiles:
+            try:
+                tmpfile.close()
+            except Exception as ex:
+                logger.warn('Unable to delete temporary file "%s": %s', tmpfile.name, ex)
 
     return stdout
 

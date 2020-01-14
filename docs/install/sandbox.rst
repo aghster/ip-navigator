@@ -69,8 +69,9 @@ Python sandbox
 --------------
 Create a virtual environment holding the sandbox installation::
 
-    virtualenv --python=python2 --no-site-packages .venv27
-    source .venv27/bin/activate
+    apt install python-virtualenv
+    virtualenv --python=python2 --no-site-packages .venv2
+    source .venv2/bin/activate
 
 Install/upgrade some prerequisites::
 
@@ -91,11 +92,11 @@ Fetch all module dependencies::
 
 Bundle application and all required assets::
 
-    yarn run build
+    yarn build
 
 Rebundle on file change::
 
-    yarn run watch
+    yarn watch
 
 
 Configure
@@ -118,7 +119,7 @@ Start database::
 
 Start web server::
 
-    source .venv27/bin/activate
+    source .venv2/bin/activate
     pserve patzilla/config/development-local.ini --reload
 
 Then, open http://localhost:6543/navigator/
@@ -150,3 +151,22 @@ Run selected test suite::
     make test options='--where patzilla.access.depatech'
     make test options='--where patzilla.util.numbers.test.test_normalize'
 
+
+***************
+Troubleshooting
+***************
+
+Missing gmp on macOS
+====================
+When encountering error like::
+
+    src/_fastmath.c:36:11: fatal error: 'gmp.h' file not found
+
+make sure you have gmp installed::
+
+    brew install gmp
+
+and that it's available to your environment::
+
+    export LDFLAGS=-L/usr/local/opt/gmp/lib
+    export CPPFLAGS=-I/usr/local/opt/gmp/include

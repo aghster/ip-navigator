@@ -43,9 +43,8 @@ require('bootstrap-2.3.2/js/bootstrap-popover.js');
 require('bootstrap-2.3.2/js/bootstrap-transition.js');
 require('bootstrap-2.3.2/js/bootstrap-typeahead.js');
 
-// Font Awesome 3.2.1
-// TODO: Upgrade to more recent version
-require('fontawesome-3.2.1/css/font-awesome.css');
+// Font Awesome 3.2.1; TODO: Upgrade to more recent version
+require('font-awesome/css/font-awesome.css');
 
 
 // Global utilities
@@ -73,6 +72,9 @@ var propagate_opaque_errors = require('patzilla.navigator.components.opaquelinks
 
 // CSS Stylesheets
 require('patzilla.navigator.style');
+
+// Material Design Icons
+require('patzilla.lib.mdc.material-icons');
 
 
 /**
@@ -122,18 +124,6 @@ navigatorApp.addRegions({
     listRegion: "#ops-collection-region",
     paginationRegionTop: "#ops-pagination-region-top",
     paginationRegionBottom: "#ops-pagination-region-bottom",
-});
-
-
-// Load application components / plugins at runtime
-navigatorApp.addInitializer(function(options) {
-
-    // Stack plugin
-    var stack_enabled = this.theme.get('feature.stack.enabled');
-    if (stack_enabled) {
-        require('patzilla.navigator.components.stack');
-    }
-
 });
 
 
@@ -237,16 +227,13 @@ navigatorApp.addInitializer(function(options) {
 
         this.setup_ui();
 
-        // Propagate "datasource" query parameter
-        var datasource = this.config.get('datasource');
-        if (datasource) {
-            this.set_datasource(datasource);
-        }
+        // Compute and set optimal data source.
+        this.bootstrap_datasource();
 
-        // Activate regular list region right now to avoid double rendering on initial page load
+        // Activate regular list region right now to avoid double rendering on initial page load.
         this.listRegion.show(this.collectionView);
 
-        // Hide pagination- and metadata-area to start from scratch
+        // Hide pagination- and metadata-area to start from scratch.
         this.ui.reset_content();
 
         // Propagate opaque error messages to alert area

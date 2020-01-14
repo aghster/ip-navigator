@@ -9,12 +9,9 @@ import { DirectRenderMixin } from 'patzilla.lib.marionette';
 export { SnackbarWidget };
 
 
-// Acquire CSS
-require('@material/snackbar/mdc-snackbar');
-
 class SnackbarWidget extends classes.many(Backbone.Marionette.ItemView, DirectRenderMixin) {
     /*
-     * SnackbarWidget encapsulates the Snackbox Material Design Component (MDC)
+     * SnackbarWidget encapsulates the Snackbar Material Design Component (MDC)
      * into a `Marionette.ItemView`.
      *
      * https://material-components.github.io/material-components-web-catalog/#/component/snackbar
@@ -49,8 +46,38 @@ class SnackbarWidget extends classes.many(Backbone.Marionette.ItemView, DirectRe
     }
 
     show(message, options) {
-        //this.snackbar.show({message: message, timeout: 40000});
-        this.snackbar.show({message: message});
+
+        // Compute colors based on ambient.
+        if ($('.modal-backdrop').exists()) {
+            $(this.el).css('background-color', 'lightgray');
+            $(this.el).find('.mdc-snackbar__text').css('color', 'black');
+        } else {
+            $(this.el).css('background-color', '#323232');
+            $(this.el).find('.mdc-snackbar__text').css('color', 'white');
+        }
+
+        var timeout = 4000;
+        if (message.length >= 30) {
+            timeout = 5500;
+        }
+        if (message.length >= 50) {
+            timeout = 7000;
+        }
+        this.snackbar.show({
+            message: message,
+            multiline: false,
+            timeout: timeout,
+
+            // https://github.com/material-components/material-components-web/issues/1398#issuecomment-391720258
+            actionText: 'Dismiss',
+            actionHandler: function() {},
+            /*
+            actionHandler: function () {
+                snackbarElement.setAttribute('aria-hidden', true);
+                snackbarElement.classList.remove('mdc-snackbar--active');
+            }
+            */
+        });
     }
 
 }
