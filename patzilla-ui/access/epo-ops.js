@@ -198,8 +198,7 @@ OpsExchangeMetadata = Backbone.Model.extend({
         // these carry state, so switching the navigator into a special mode, currently
         reviewmode: false,
 
-        // TODO: Don't have this fixed to OPS
-        datasource: 'ops',
+        datasource: null,
         searchmode: null,
         page_size: 25,
         result_count: null,
@@ -211,7 +210,8 @@ OpsExchangeMetadata = Backbone.Model.extend({
         pagination_pagesize_choices: [25, 50, 75, 100],
         pagination_current_page: 1,
         keywords: [],
-        // TODO: This is also OPS-specific
+
+        // Fixme: This value is specific to OPS.
         maximum_results: 2000,
 
         get_url: function() {
@@ -893,21 +893,9 @@ OpsFulltext = Marionette.Controller.extend({
             .then(function(payload) {
                 if (payload) {
                     var claims = payload['ops:world-patent-data']['ftxt:fulltext-documents']['ftxt:fulltext-document']['claims'];
-                    //console.log('claims', claims);
+                    //console.log('claims', _this.document_number, claims);
 
-                    var response = {};
-                    _(to_list(claims)).each(function(claims_per_language) {
-                        // TODO: maybe unify with display_description
-                        var content_parts = _(to_list(claims_per_language['claim']['claim-text'])).map(function(item) {
-                            return '<p>' + _(item['$']).escape().replace(/\n/g, '<br/>') + '</p>';
-                        });
-                        var language = claims_per_language['@lang'];
-                        response[language] = {
-                            text: content_parts.join('\n'),
-                            lang: language,
-                        };
-                    });
-
+                    var response = _this.collect_fulltext_items(claims, function(item) { return item['claim']['claim-text']; });
                     deferred.resolve(response, _this.get_datasource_label());
                 }
             }).catch(function(error) {
@@ -929,17 +917,9 @@ OpsFulltext = Marionette.Controller.extend({
             .then(function(payload) {
                 if (payload) {
                     var description = payload['ops:world-patent-data']['ftxt:fulltext-documents']['ftxt:fulltext-document']['description'];
-                    //console.log('description', document_number, description);
+                    //console.log('description', _this.document_number, description);
 
-                    // TODO: maybe unify with display_claims
-                    var content_parts = _(to_list(description.p)).map(function(item) {
-                        return '<p>' + _(item['$']).escape().replace(/\n/g, '<br/><br/>') + '</p>';
-                    });
-                    var content_text = content_parts.join('\n');
-                    var response = {
-                        html: content_text,
-                        lang: description['@lang'],
-                    };
+                    var response = _this.collect_fulltext_items(description, function(item) { return item['p']; });
                     deferred.resolve(response, _this.get_datasource_label());
                 }
             }).catch(function(error) {
@@ -949,6 +929,21 @@ OpsFulltext = Marionette.Controller.extend({
 
         return deferred.promise();
 
+    },
+
+    collect_fulltext_items: function(items, itemgetter) {
+        var response = {};
+        _(to_list(items)).each(function(item_per_language) {
+            var fragments = _(to_list(itemgetter(item_per_language))).map(function(fragment) {
+                return '<p>' + _(fragment['$']).escape().replace(/\n/g, '<br/>') + '</p>';
+            });
+            var language = item_per_language['@lang'];
+            response[language] = {
+                text: fragments.join('\n'),
+                lang: language,
+            };
+        });
+        return response;
     },
 
 });

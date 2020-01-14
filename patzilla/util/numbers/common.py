@@ -12,10 +12,15 @@ Common lowlevel functions
 
 log = logging.getLogger(__name__)
 
+
 class DocumentIdentifierBunch(SmartBunch):
 
     def __str__(self):
         return self.dump()
+
+    def serialize(self):
+        return join_patent(self)
+
 
 def join_patent(patent):
     if not patent:
@@ -167,10 +172,23 @@ def modify_invalid_patent_number(patent_number):
 
     return patent_number
 
-def encode_epodoc_number(document, options=None):
+
+def encode_number(document, separator='', separator2=None, options=None):
     options = options or {}
-    thing = document.country + document.number
+
+    if separator2 is None:
+        separator2 = separator
+
+    thing = document.country + separator + document.number
     if document.kind and not ('nokind' in options and options['nokind']):
-        thing += '.' + document.kind
+        thing += separator2 + document.kind
+
     return thing
 
+
+def encode_docdb_number(document, separator='.', options=None):
+    return encode_number(document, separator=separator, options=options)
+
+
+def encode_epodoc_number(document, options=None):
+    return encode_number(document, separator='', separator2='.', options=options)

@@ -2,6 +2,8 @@
 // (c) 2014-2018 Andreas Motl <andreas.motl@ip-tools.org>
 require('jquery.shorten.1.0');
 require('./util.js');
+var Nataraja = require('patzilla.navigator.components.nataraja').Nataraja;
+
 
 DocumentBaseController = Marionette.Controller.extend({
 
@@ -155,10 +157,13 @@ DocumentBaseController = Marionette.Controller.extend({
 DocumentDetailsController = Marionette.Controller.extend({
 
     initialize: function(options) {
-        console.log('DocumentDetailsController.initialize');
+        log('DocumentDetailsController.initialize');
+        this.nataraja = new Nataraja();
     },
 
     setup_ui: function() {
+
+        log('DocumentDetailsController.setup_ui');
 
         var _this = this;
 
@@ -180,16 +185,19 @@ DocumentDetailsController = Marionette.Controller.extend({
             var document = navigatorApp.document_base.get_document_by_element(this);
 
             if (document) {
-                if (_(['claims', 'description']).contains(details_type)) {
-                    var details = _this.get_fulltext_details(details_type, document);
-                    _this.display_fulltext(container, details_title, details);
 
+                // Setup fulltext display.
+                if (_(['claims', 'description']).contains(details_type)) {
+
+                    // Acquire fulltext information and display it.
+                    var details = _this.get_fulltext_details(details_type, document);
+                    _this.display_fulltext(details, {element: container, type: details_type, title: details_title});
+
+                // Setup family information display.
                 } else if (details_type == 'family') {
 
+                    // Setup more button event handlers.
                     var family_chooser = $(container).find('.family-chooser');
-
-
-                    // event handler
                     family_chooser.find('button[data-toggle="tab"]').on('show', function (e) {
                         var view_type = $(this).data('view-type');
                         if (view_type == 'citations') {
@@ -206,7 +214,7 @@ DocumentDetailsController = Marionette.Controller.extend({
                         }
                     });
 
-                    // initial setup
+                    // Initial configuration.
                     var active_tab = family_chooser.find('button[data-toggle="tab"][class*="active"]');
                     var view_type = $(active_tab).data('view-type');
                     _this.display_family(document, container, view_type);
@@ -239,7 +247,8 @@ DocumentDetailsController = Marionette.Controller.extend({
         var document_number;
         if (datasource_name == 'ops') {
             clazz = OpsFulltext;
-            document_number = document.get_publication_number('epodoc');
+            document_number = document.get_publication_number('docdb');
+            log('Acquiring fulltext information for ' + document_number);
 
         } else if (datasource_name == 'depatisconnect') {
             clazz = DepatisConnectFulltext;
@@ -274,13 +283,18 @@ DocumentDetailsController = Marionette.Controller.extend({
         }
     },
 
-    display_fulltext: function(container, title, details) {
+    display_fulltext: function(details, options) {
         var _this = this;
 
-        var content_element = container.find('.content-nt');
+        var container = options.element;
+        var title = options.title;
 
-        //var template = _.template($('#document-fulltext-template').html(), {variable: 'data'});
-        var template = require('./fulltext.html');
+        var content_element = container.find('*[data-area="fulltext"]');
+
+        var identifier = container.data('identifier');
+
+        //var template_single = _.template($('#document-fulltext-template').html(), {variable: 'data'});
+        var template_single = require('./fulltext.html');
 
         if (content_element) {
             this.indicate_activity(container, true);
@@ -290,7 +304,8 @@ DocumentDetailsController = Marionette.Controller.extend({
 
                     // Legacy format: Object w/o language, just contains "html" and "lang" attributes.
                     if (data.html) {
-                        var content = template({
+                        var content = template_single({
+                            type: options.type,
                             title: title,
                             language: data.lang,
                             content: data.html,
@@ -300,18 +315,44 @@ DocumentDetailsController = Marionette.Controller.extend({
 
                     // New format: Object keyed by language.
                     } else {
+
+                        // Todo: Make this list configurable by user preferences.
+                        var language_sort_order = ['EN', 'DE', 'FR'];
+
+                        var language_sort_criteria = function(value) {
+                            var index = language_sort_order.indexOf(value);
+                            if (index == -1) {
+                                return 999;
+                            } else {
+                                return index;
+                            }
+                        };
+
+                        var languages = _(data).keys();
+                        languages = _.sortBy(languages, language_sort_criteria);
+
                         var parts = [];
-                        for (var key in data) {
-                            var item = data[key];
-                            parts.push(template({
+                        for (var index in languages) {
+                            var language = languages[index];
+                            var item = data[language];
+                            parts.push({
+                                type: options.type,
                                 title: title,
                                 language: item.lang,
                                 content: item.text,
                                 datasource: datasource_label,
-                            }));
+                            });
                         };
-                        content_element.html(parts.join('<hr/>'));
+
+                        // Render HTML content for single or multiple languages.
+                        var template_multi = require('./fulltext-multi.html');
+                        html_content = template_multi({identifier: identifier, items: parts});
+                        content_element.html(html_content);
+
                     }
+
+                    _this.setup_fulltext_tools(content_element);
+
                     if (navigatorApp.keywords) {
                         navigatorApp.keywords.highlight($(content_element).find('*'));
                     } else {
@@ -322,7 +363,7 @@ DocumentDetailsController = Marionette.Controller.extend({
                 log('Fetching fulltext for document failed:', data);
                 _this.indicate_activity(container, false);
                 if (data && data.html) {
-                    content_element.html(template({
+                    content_element.html(template_single({
                         title: title,
                         content: data.html,
                         language: undefined,
@@ -332,6 +373,27 @@ DocumentDetailsController = Marionette.Controller.extend({
             });
         }
 
+    },
+
+    setup_fulltext_tools: function(container) {
+        var _this = this;
+        // Setup more button event handlers.
+        var elements = container.find('*[data-component="nataraja"] a');
+        elements.off('click');
+        elements.on('click', function (event) {
+            event.preventDefault();
+            //event.stopPropagation();
+
+            // Find out which comparison action has been clicked
+            // and forward this information to Nataraja.
+            var action = $(this).data('action');
+            var text_element = $(this).closest('*[data-area="fulltext"]').find('*[data-area="text"]');
+            if (action == 'comparison-select-left') {
+                _this.nataraja.select_left(text_element);
+            } else if (action == 'comparison-select-right') {
+                _this.nataraja.select_right(text_element);
+            }
+        });
     },
 
     // TODO: Move to family.js

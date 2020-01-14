@@ -16,6 +16,8 @@ from patzilla.navigator.util import object_attributes_to_dict
 from patzilla.util.image.convert import pdf_join, pdf_set_metadata, pdf_make_metadata
 from patzilla.access.generic.exceptions import NoResultsException
 from patzilla.util.numbers.common import decode_patent_number, split_patent_number
+from patzilla.util.numbers.common import encode_epodoc_number, encode_docdb_number
+from patzilla.util.numbers.normalize import normalize_patent
 
 log = logging.getLogger(__name__)
 
@@ -145,6 +147,7 @@ def results_swap_family_members(response):
         try:
             family_info = ops_family_members(representation_pubref_epodoc)
         except:
+            log.warning('Failed to fetch family information for %s', representation_pubref_epodoc)
             chunk['exchange-document'] = representation
             request = get_current_request()
             del request.errors[:]
@@ -176,11 +179,12 @@ def results_swap_family_members(response):
                 if match_filter(member_pubnum, filter):
 
                     # Debugging
-                    #print 'member_pubnum:', member_pubnum
+                    #print 'Filter matched for member:', member_pubnum
 
                     try:
                         bibdata = ops_biblio_documents(member_pubnum)
                     except:
+                        #log.warning('Fetching bibliographic data failed for %s', member_pubnum)
                         request = get_current_request()
                         del request.errors[:]
                         continue
@@ -223,12 +227,40 @@ def results_swap_family_members(response):
 
         chunk['exchange-document'] = representation
 
+    # Filter duplicates
+    seen = []
+    results = []
+    fields = ['@country', '@doc-number', '@kind', '@family-id']
+    for chunk in chunks:
+
+        # Prepare list of document cycles.
+        cycles = to_list(chunk['exchange-document'])
+
+        # Only look at first cycle slot.
+        doc = cycles[0]
+
+        # Compute unique document identifier.
+        ident = {}
+        for key in fields:
+            ident[key] = doc[key]
+
+        # Collect chunk if not seen yet.
+        if ident in seen:
+            continue
+        else:
+            seen.append(ident)
+            results.append(chunk)
+
+    # Overwrite reduced list of chunks in original DOM.
+    pointer_results.set(response, results)
+
     return publication_numbers
 
 
 @cache_region('search', 'ops_search')
 def ops_published_data_search(constituents, query, range):
     return ops_published_data_search_real(constituents, query, range)
+
 
 def ops_published_data_search_real(constituents, query, range):
 
@@ -254,6 +286,7 @@ def ops_published_data_search_real(constituents, query, range):
             raise NoResultsException('No results', data=payload)
 
         return payload
+
 
 @cache_region('search')
 def ops_published_data_crawl(constituents, query, chunksize):
@@ -418,7 +451,7 @@ def inquire_images(document):
 
     # v1: docdb
     if patent.kind:
-        ops_patent = patent['country'] + '.' + patent['number'] + '.' + patent['kind']
+        ops_patent = encode_docdb_number(patent)
         url_image_inquiry_tpl = '{baseuri}/published-data/publication/docdb/images'
 
     # v2: epodoc
@@ -627,8 +660,13 @@ def ops_description(document_number, xml=False):
     # http://ops.epo.org/3.1/rest-services/published-data/publication/epodoc/EP0666666.A2/description.json
     # http://ops.epo.org/3.1/rest-services/published-data/publication/epodoc/EP0666666.B1/description.json
 
+    patent = normalize_patent(document_number, for_ops=True, as_dict=True)
+    document_number = encode_epodoc_number(patent)
+
     url_tpl = '{baseuri}/published-data/publication/epodoc/description'
     url = url_tpl.format(baseuri=OPS_API_URI)
+
+    log.info('Acquiring description for document "{}" from "{}"'.format(document_number, url))
 
     # Acquire description fulltext from OPS.
     with ops_client(xml=xml) as ops:
@@ -641,8 +679,13 @@ def ops_claims(document_number, xml=False):
 
     # http://ops.epo.org/3.1/rest-services/published-data/publication/epodoc/EP0666666/claims.json
 
+    patent = normalize_patent(document_number, for_ops=True, as_dict=True)
+    document_number = encode_epodoc_number(patent)
+
     url_tpl = '{baseuri}/published-data/publication/epodoc/claims'
     url = url_tpl.format(baseuri=OPS_API_URI)
+
+    log.info('Acquiring claims for document "{}" from "{}"'.format(document_number, url))
 
     # Acquire claims fulltext from OPS.
     with ops_client(xml=xml) as ops:
@@ -668,11 +711,16 @@ def ops_family_inpadoc(reference_type, document_number, constituents, xml=False)
 
     # Compute document identifier.
     document_id = split_patent_number(document_number)
-    ops_id = epo_ops.models.Epodoc(document_id.country + document_id.number, document_id.kind)
 
     # Acquire family information from OPS.
     with ops_client(xml=xml) as ops:
+        ops_id = epo_ops.models.Epodoc(document_id.country + document_id.number, document_id.kind)
         response = ops.family(reference_type, ops_id, constituents=to_list(constituents))
+
+        if response.status_code == 404:
+            ops_id = epo_ops.models.Docdb(document_id.number, document_id.country, document_id.kind)
+            response = ops.family(reference_type, ops_id, constituents=to_list(constituents))
+
         return handle_response(response, 'ops-family')
 
 
@@ -829,6 +877,8 @@ def handle_error(response, location):
 @cache_region('static')
 def pdf_document_build(patent):
 
+    log.info('PDF {}: OPS attempt'.format(patent))
+
     # 1. collect all single pdf pages
     image_info = inquire_images(patent)
     if not image_info:
@@ -866,7 +916,7 @@ def pdf_document_build(patent):
 
 
 def ops_biblio_documents(patent):
-    data = get_ops_biblio_data(patent)
+    data = get_ops_biblio_data('publication', patent)
     documents = to_list(data['ops:world-patent-data']['exchange-documents']['exchange-document'])
     return documents
 
@@ -881,13 +931,13 @@ def get_ops_biblio_data(reference_type, patent, xml=False):
     else:
         ops_id = epo_ops.models.Epodoc(document_id.country + document_id.number, document_id.kind)
 
-    # Acquire claims fulltext from OPS.
+    # Acquire bibliographic data from OPS.
     with ops_client(xml=xml) as ops:
         response = ops.published_data(reference_type, ops_id, constituents=['full-cycle'])
         return handle_response(response, 'ops-biblio')
 
 
-@cache_region('search')
+@cache_region('medium')
 def ops_document_kindcodes(patent):
 
     error_msg_access = 'No bibliographic information for document={0}'.format(patent)
@@ -1077,9 +1127,8 @@ def analytics_family(query):
 
     return payload
 
-def ops_family_members(document_number):
 
-    #print '=========== ops_family_members:', document_number
+def ops_family_members(document_number):
 
     pointer_results = JsonPointer('/ops:world-patent-data/ops:patent-family/ops:family-member')
     pointer_publication_reference = JsonPointer('/publication-reference/document-id')
@@ -1104,7 +1153,10 @@ def ops_family_members(document_number):
             'application': {'number-docdb': appref_number, 'date': appref_date},
             })
 
+    #log.info('Family members for %s:\n%s', document_number, family_members)
+
     return family_members
+
 
 class OPSFamilyMembers(object):
 

@@ -2,6 +2,9 @@
 // (c) 2017-2018 Andreas Motl <andreas.motl@ip-tools.org>
 const path = require('path');
 const webpack = require('webpack');
+const CleanWebpackPlugin = require('clean-webpack-plugin');
+const LicenseWebpackPlugin = require('license-webpack-plugin').LicenseWebpackPlugin;
+var fs = require("fs");
 
 // Concepts - Using Third Party Libraries that Are not CJS/AMD/ES6 Modules
 // https://github.com/webpack/webpack.js.org/issues/63
@@ -59,6 +62,10 @@ const config = {
 
     plugins: [
 
+        new CleanWebpackPlugin({
+            cleanOnceBeforeBuildPatterns: ['**/*', '!README.txt', '!.gitignore'],
+        }),
+
         // https://webpack.js.org/plugins/provide-plugin/
         new webpack.ProvidePlugin({
             '$': 'jquery',
@@ -73,7 +80,17 @@ const config = {
             'Backbone.Marionette': 'backbone.marionette',
         }),
 
-        new webpack.BannerPlugin('\nLicensed to ACME, Inc. under one\nor more contributor license agreements.  See the NOTICE file\ndistributed with this work for additional information\nregarding copyright ownership.  ACME, Inc. licenses this file\nto you under the Apache License, Version 2.0 (the\n"License"); you may not use this file except in compliance\nwith the License.  You may obtain a copy of the License at\n\nhttp://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an "AS IS" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n'),
+        // https://webpack.js.org/plugins/banner-plugin/
+        new webpack.BannerPlugin(fs.readFileSync('./webpack.banner.txt', 'utf8')),
+
+        // https://github.com/xz64/license-webpack-plugin
+        new LicenseWebpackPlugin({
+          perChunkOutput: false,
+          stats: {
+            warnings: false,
+            errors: false
+          }
+        }),
 
     ],
 
@@ -82,6 +99,17 @@ const config = {
 
             // Use Babel for loading own code
             // https://www.npmjs.com/package/babel-loader
+            {
+                test: /\.tsx?$/,
+                exclude: /(node_modules|bower_components)/,
+                loaders: [
+                    {
+                        loader: 'babel-loader',
+                        options: { presets: ['env'] },
+                    },
+                    'ts-loader',
+                ],
+            },
             {
                 test: /\.js$/,
                 exclude: /(node_modules|bower_components)/,
@@ -218,7 +246,7 @@ const config = {
             path.resolve(__ui, 'vendor', 'widget'),
         ],
 
-        extensions: [".js", ".jsx", ".min.js", ".json", ".css", ".scss"],
+        extensions: [".ts", ".tsx", ".js", ".jsx", ".min.js", ".json", ".css", ".scss"],
 
         alias: {
 
@@ -253,6 +281,7 @@ const config = {
             'patzilla.navigator.components.storage':         path.resolve(__ui, 'navigator', 'components', 'storage'),
             'patzilla.navigator.components.viewport':        path.resolve(__ui, 'navigator', 'components', 'viewport'),
             'patzilla.navigator.components.waypoints':       path.resolve(__ui, 'navigator', 'components', 'waypoints'),
+            'patzilla.navigator.components.nataraja':        path.resolve(__ui, 'navigator', 'components', 'nataraja'),
 
             'patzilla.access.depatech':                      path.resolve(__ui, 'access', 'depatech'),
             'patzilla.access.depatisnet':                    path.resolve(__ui, 'access', 'depatisnet'),
@@ -270,9 +299,12 @@ const config = {
             'patzilla.lib.hero-checkbox':                    path.resolve(__ui, 'lib', 'hero-checkbox'),
             'patzilla.lib.mdc.material-icons':               path.resolve(__ui, 'lib', 'mdc', 'material-icons'),
             'patzilla.lib.mdc.snackbar':                     path.resolve(__ui, 'lib', 'mdc', 'snackbar'),
+            'patzilla.lib.mui.dialog':                       path.resolve(__ui, 'lib', 'mui', 'dialog'),
             'patzilla.common.issuereporter':                 path.resolve(__ui, 'common', 'issuereporter'),
 
             modernizr$:                                      path.resolve(__ui, 'vendor', '.modernizrrc'),
+            'backbone': path.join(__dirname, 'node_modules', 'backbone', 'backbone.js'),
+            'underscore': path.join(__dirname, 'node_modules', 'underscore', 'underscore.js')
 
         }
     },

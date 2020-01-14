@@ -17,7 +17,7 @@ function now_iso_human() {
 }
 
 function now_iso_filename() {
-    return moment().format('YYYY-MM-DD_HH:mm:ss');
+    return moment().format('YYYY-MM-DD_HH-mm-ss');
 }
 
 function today_iso() {
@@ -396,6 +396,14 @@ function xhr_decode_error(xhr, options) {
     return error;
 }
 
+function sanitize_non_ascii(value) {
+    // https://www.w3resource.com/javascript-exercises/javascript-string-exercise-32.php
+    if (value) {
+        return value.replace(/[^\x20-\x7E]/g, '').trim();
+    } else {
+        return value;
+    }
+}
 
 exports.log = log;
 exports.asbool = asbool;
@@ -418,3 +426,4 @@ exports.timestamp = timestamp;
 exports.isodate_compact_to_verbose = isodate_compact_to_verbose;
 
 exports.xhr_decode_error = xhr_decode_error;
+exports.sanitize_non_ascii = sanitize_non_ascii;

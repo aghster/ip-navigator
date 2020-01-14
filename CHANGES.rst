@@ -7,6 +7,131 @@ Development
 ===========
 
 
+2019-11-01 0.169.3
+==================
+- Fixes and improvements for building and installation procedure
+
+
+2019-11-01 0.169.2
+==================
+- [mw] Upgrade to ``python-epo-ops-client==3.1.1``. Thanks, @gsong!
+  https://meta.ip-tools.org/t/bibliographic-data-missing-from-ops-family-response/161
+
+
+2019-09-19 0.169.1
+==================
+- [mw] Improve API URI handling for upstream data source
+- [mw] Fix ``ops_family_inpadoc`` service
+- [ui] Fix close_checkbox function (#21). Thanks, Vasily!
+- [ui] Update Backbone and Marionette to a bit newer version (#20). Thanks Andrii!
+    - Backbone 1.0.0 -> 1.1.2
+    - backbone.marionette 1.1.0 -> 1.8.8
+
+    A little workaround with aliases.
+
+
+2019-06-06 0.168.1
+==================
+- [ui] Add missing ``tsconfig.json``. Thanks, Andrii.
+- [ui] Bump material-ui versions
+
+
+2019-05-29 0.168.0
+==================
+- [mw] Prevent wrong data format slipping through from data source
+- [ui] Attempt to mitigate https://github.com/marcj/css-element-queries/issues/268
+  by upgrading to most recent release
+- [ui] Offer multiple languages when displaying fulltext content
+- [ui] Honor vendor-based data source preference
+- [ui] Optionally expand maximum share time to five years
+- [ui] Fix preferred data source selector
+- [ui] Improve multi-language fulltext display
+- [ui] Introduce TypeScript and Material-UI
+- [ui] Add fullscreen dialog based on Material-UI
+
+
+2019-05-15 0.167.2
+==================
+- [ui] Fix snackbar actionHandler
+
+
+2019-05-15 0.167.1
+==================
+- [ui] Tune minimum visibility duration of snackbar
+- [ui] Filter dangling BasketEntry items. Thanks, Andreas.
+
+
+2019-05-14 0.167.0
+==================
+- [ui] Improve input string sanitation
+- [ui] Project import/export
+- [ui] Improve snackbar
+- [ui] Improve project chooser layout
+
+
+2019-05-13 0.166.2
+==================
+- [ui] Improve "Fix export with non-ascii characters accidentally slipped into patent numbers"
+- [mw] Fix per-vendor settings for OPS credentials
+
+
+2019-05-13 0.166.1
+==================
+- [mw] Fix missing dependency
+
+
+2019-05-13 0.166.0
+==================
+- [ui] Upgrade to jQuery 3.4.1
+- [ui] Add "clean-webpack-plugin" to cleanup the assets folder before building
+- [mw] Improve settings for having per-vendor OPS credentials
+- [ui] More flexbox for header layout
+- [ui] Improve comment editing usability
+
+
+2019-05-08 0.165.0
+==================
+- Fix broken "nasa-public-domain" demo link. Thanks, Andrii!
+- Adjust DEPATISnet data source adapter to upstream changes. Thanks, Gaby!
+- Fix export with non-ascii characters accidentally slipped into patent numbers. Thanks, Andreas!
+- Improve styling capabilities
+- Remove defunct upstream database
+- Add ``patview`` to the list of accepted patentview subdomains
+
+
+2019-03-09 0.164.1
+==================
+- Fix/improve Makefile and inline doctests
+- Fix DPMAregister data source
+
+
+2019-03-05 0.164.0
+==================
+- [doc] Update documentation
+- [mw] Allow access to /ping endpoint
+- [mw] Fix minor regression
+- [mw] Fix tests
+- [mw] Resolve issue when European publication server returns
+  reference to WIPO as HTML response instead of PDF document
+- [mw] Pad document numbers for granted patents to 8 digits
+  with leading zeros when accessing USPTO for PDF documents
+- [mw] Try USPTO servers before DPMA servers when accessing PDF documents
+- [mw] Deduplicate results with "family member by priority" feature
+
+
+2019-02-21 0.163.0
+==================
+- [mw] Use EPO publication server for obtaining PDFs of EP publications (#12). Thanks, Felix!
+- [mw] Use USPTO publication servers for obtaining PDFs of US documents
+- [mw] Improve generic PDF data source
+- [mw] Fix "Family member by priority" functionality
+
+
+2019-02-14 0.162.2
+==================
+- [ui] Fix opening keyword editor
+
+
 2019-02-14 0.162.1
 ==================
 - [ui] Fix feature flag evaluation

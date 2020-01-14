@@ -1,0 +1,75 @@
+<%
+// -*- coding: utf-8 -*-
+// (c) 2013-2019 Andreas Motl <andreas.motl@ip-tools.org>
+%>
+
+<div class="btn-group btn-popover tabs do-not-print"
+     data-toggle="popover" data-trigger="hover" data-placement="top"
+     data-content="Choose language"
+        >
+    <%
+    var first_item_classes = 'active';
+    _(items).each(function(item) {
+    %>
+
+    <!-- One button per language -->
+    <button class="btn <%= first_item_classes %>" data-toggle="tab"
+            href="#document-details-<%= item.type %>-container-<%= identifier %>-<%= item.language %>">
+        <%= item.language %>
+    </button>
+
+    <%
+    first_item_classes = '';
+    });
+    %>
+
+    <% /*
+    <!-- More utilities -->
+    <button data-toggle="dropdown" role="button" class="btn btn-info dropdown-toggle">
+        <i class="icon-wrench"></i>
+    </button>
+    <ul class="dropdown-menu" data-component="nataraja">
+
+        <li>
+
+            <!-- Nataraja Comparison -->
+            <a data-action="comparison-select-left" href="#" id="foobar"
+               class="btn-popover" data-toggle="popover" data-trigger="hover" data-placement="bottom"
+               data-content="Select this text for comparison.">
+                <i class="icon-long-arrow-left"></i> &nbsp; Select as comparison source
+            </a>
+            <a data-action="comparison-select-right" href="#"
+                class="btn-popover" data-toggle="popover" data-trigger="hover" data-placement="bottom"
+                data-content="Compare against this text.">
+                <i class="icon-long-arrow-right"></i> &nbsp; Select as comparison target
+            </a>
+
+            <!--
+            <hr class="divider"/>
+            -->
+
+        </li>
+    </ul>
+    */ %>
+
+</div>
+
+
+<div class="tab-content">
+<%
+var item_template = require('./fulltext.html');
+var first_item_classes = 'in active';
+_(items).each(function(item) {
+%>
+
+<div id="document-details-<%= item.type %>-container-<%= identifier %>-<%= item.language %>"
+     data-identifier="<%= identifier %>"
+     class="tab-pane fade <%= first_item_classes %>" style="margin-top: 1em">
+    <%= item_template(item) %>
+</div>
+
+<%
+first_item_classes = '';
+});
+%>
+</div>

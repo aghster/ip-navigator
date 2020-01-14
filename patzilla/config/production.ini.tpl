@@ -34,8 +34,8 @@ organization        = PatZilla
 productname         = PatZilla IP Navigator
 productname_html    = <span class="header-logo">PatZilla <i class="circle-icon">IP</i> Navigator</span>
 page_title          = Patent search
-copyright_html      = &copy; 2013-2019, <a href="https://www.example.org/" class="incognito pointer" target="_blank">Example Inc.</a> — All rights reserved.
-stylesheet_uri      = /static/vendor/patzilla/patzilla.css
+copyright_html      = &copy; 2013-2019, <a href="https://docs.ip-tools.org/ip-navigator/" class="incognito pointer" target="_blank">The PatZilla Developers</a> — All rights reserved.
+stylesheet_uri      = /static/patzilla.css
 
 
 # ========================
@@ -73,6 +73,7 @@ fulltext_countries = DE, US
 
 # API connection settings
 api_uri      = {ificlaims_api_uri}
+api_uri_json = {ificlaims_api_uri_json}
 api_username = {ificlaims_api_username}
 api_password = {ificlaims_api_password}
 
@@ -248,7 +249,7 @@ level = INFO
 handlers = console
 
 [logger_patzilla]
-level = INFO
+level = WARN
 handlers =
 qualname = patzilla
 
