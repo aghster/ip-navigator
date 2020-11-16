@@ -1,4 +1,4 @@
-FROM alpine:3.7
+FROM alpine:3.8
 RUN apk add --no-cache --update \
   bash \
   python2 \
@@ -17,7 +17,7 @@ RUN apk add --no-cache --update \
   imagemagick && \
   python -m ensurepip && \
   rm -r /usr/lib/python*/ensurepip && \
-  pip install --upgrade pip setuptools && \
+  pip install --upgrade pip setuptools wheel && \
   rm -r /root/.cache && \
   pip install patzilla
 ENTRYPOINT ["/usr/bin/pserve"]
